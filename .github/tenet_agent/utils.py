@@ -1,11 +1,11 @@
 """
-TENET Agent – Shared utilities
+TENET Agent - Shared utilities
 Handles GitHub API interactions, permission checks, and LLM client setup.
 """
 
 import os
+import re
 import sys
-import json
 import requests
 import google.generativeai as genai
 from github import Github, GithubException
@@ -14,43 +14,60 @@ from github import Github, GithubException
 # ─── GitHub client ────────────────────────────────────────────────────────────
 
 def get_github_client() -> Github:
-    token = os.environ["GITHUB_TOKEN"]
+    """Create and return an authenticated GitHub client."""
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        print("❌ GITHUB_TOKEN is not set.")
+        sys.exit(1)
     return Github(token)
 
 
 def get_repo(g: Github):
-    repo_name = os.environ["REPO"]
+    """Return the repository object for the current workflow context."""
+    repo_name = os.environ.get("REPO")
+    if not repo_name:
+        print("❌ REPO environment variable is not set.")
+        sys.exit(1)
     return g.get_repo(repo_name)
 
 
 # ─── LLM client ───────────────────────────────────────────────────────────────
 
 def get_llm_client():
+    """Configure Gemini and return a GenerativeModel instance."""
     api_key = os.environ.get("TENET_AI_KEY")
     if not api_key:
         print("❌ TENET_AI_KEY secret is not set. Please add it in repo Settings → Secrets → Actions.")
         sys.exit(1)
     genai.configure(api_key=api_key)
     return genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.5-flash",
         generation_config=genai.types.GenerationConfig(
             temperature=0.2,
             max_output_tokens=4096,
         ),
         safety_settings=[
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE",
+            },
         ],
     )
 
 
-def call_llm(model, prompt: str) -> str:
-    """Call Gemini and return the text response."""
+def call_llm(model, prompt: str) -> str | None:
+    """
+    Call Gemini and return the text response.
+
+    Returns None on failure so callers can distinguish an error
+    from a valid (but empty) model response.
+    """
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         print(f"⚠️  LLM call failed: {e}")
-        return f"⚠️ TENET Agent encountered an error calling the LLM: {e}"
+        return None
 
 
 # ─── PR utilities ─────────────────────────────────────────────────────────────
@@ -76,7 +93,7 @@ def truncate_diff(diff: str, max_chars: int = 80_000) -> str:
     return truncated + f"\n\n... [diff truncated to {max_chars} chars for context window] ..."
 
 
-def post_pr_comment(repo, pr_number: int, body: str):
+def post_pr_comment(repo, pr_number: int, body: str) -> None:
     """Post a comment on a PR."""
     pr = repo.get_pull(pr_number)
     pr.create_issue_comment(body)
@@ -85,7 +102,7 @@ def post_pr_comment(repo, pr_number: int, body: str):
 
 # ─── Issue utilities ──────────────────────────────────────────────────────────
 
-def post_issue_comment(repo, issue_number: int, body: str):
+def post_issue_comment(repo, issue_number: int, body: str) -> None:
     """Post a comment on an issue."""
     issue = repo.get_issue(issue_number)
     issue.create_comment(body)
@@ -94,8 +111,14 @@ def post_issue_comment(repo, issue_number: int, body: str):
 
 def get_repo_structure(base_path: str = ".", max_files: int = 120) -> str:
     """Walk the repo and return a file tree string (excludes hidden dirs and common noise)."""
-    skip_dirs = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build", ".mypy_cache"}
-    skip_exts = {".pyc", ".pyo", ".so", ".egg-info", ".lock", ".log", ".png", ".jpg", ".jpeg", ".svg", ".ico"}
+    skip_dirs = {
+        ".git", "__pycache__", "node_modules", ".venv",
+        "venv", "dist", "build", ".mypy_cache",
+    }
+    skip_exts = {
+        ".pyc", ".pyo", ".so", ".egg-info", ".lock", ".log",
+        ".png", ".jpg", ".jpeg", ".svg", ".ico",
+    }
     lines = []
     count = 0
     for root, dirs, files in os.walk(base_path):
@@ -124,7 +147,6 @@ def read_relevant_files(issue_title: str, issue_body: str, max_total_chars: int 
     keywords = extract_keywords(issue_title + " " + (issue_body or ""))
     candidate_files = []
 
-    # Priority dirs to search
     search_dirs = ["services", "scripts", "dashboard", "tests", "data", "models"]
     for search_dir in search_dirs:
         if not os.path.isdir(search_dir):
@@ -137,12 +159,11 @@ def read_relevant_files(issue_title: str, issue_body: str, max_total_chars: int 
                     score = sum(1 for kw in keywords if kw.lower() in fname.lower())
                     candidate_files.append((score, fpath))
 
-    # Sort by relevance score then alphabetically
     candidate_files.sort(key=lambda x: (-x[0], x[1]))
 
     collected = []
     total_chars = 0
-    for score, fpath in candidate_files[:30]:
+    for _, fpath in candidate_files[:30]:  # score is used only for sorting; discard it here
         try:
             with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
@@ -163,8 +184,6 @@ def read_relevant_files(issue_title: str, issue_body: str, max_total_chars: int 
 
 def extract_keywords(text: str) -> list[str]:
     """Extract meaningful keywords from issue text."""
-    import re
-    # Remove markdown and common stop words
     text = re.sub(r"[`*#\[\]()>]+", " ", text)
     stop_words = {
         "the", "a", "an", "is", "in", "on", "at", "to", "for", "of",
@@ -179,48 +198,56 @@ def extract_keywords(text: str) -> list[str]:
 
 # ─── Git helpers ──────────────────────────────────────────────────────────────
 
-import re
-
 def _validate_branch_name(name: str) -> bool:
     """Ensure branch name contains only safe characters."""
     return bool(re.match(r'^[a-zA-Z0-9._/-]+$', name)) and '..' not in name
 
+
 def _validate_filepath(filepath: str, base_path: str = ".") -> bool:
-    """Ensure filepath doesn't escape the repository root."""
+    """Ensure filepath does not escape the repository root."""
     abs_base = os.path.abspath(base_path)
     abs_target = os.path.abspath(os.path.join(base_path, filepath))
     return abs_target.startswith(abs_base + os.sep) or abs_target == abs_base
 
-def create_branch_and_commit(branch_name: str, file_changes: dict[str, str], commit_message: str) -> bool:
+
+def create_branch_and_commit(
+    branch_name: str,
+    file_changes: dict[str, str],
+    commit_message: str,
+) -> bool:
     """
     Apply file_changes {filepath: new_content} and commit them to branch_name.
-    Uses subprocess (git CLI is available in GitHub Actions runners).
+
+    Uses the git CLI, which is available on all GitHub Actions runners.
+    Returns True on success, False on any git or I/O error.
     """
     import subprocess
 
-    # Validate inputs
     if not _validate_branch_name(branch_name):
-        print(f"❌ Invalid branch name: {branch_name}")
+        print(f"❌ Invalid branch name: {branch_name!r}")
         return False
-    
+
     for filepath in file_changes:
         if not _validate_filepath(filepath):
-            print(f"❌ Invalid filepath (potential path traversal): {filepath}")
+            print(f"❌ Invalid filepath (potential path traversal): {filepath!r}")
             return False
 
-    def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
+    def run(cmd: list[str]) -> subprocess.CompletedProcess:
         result = subprocess.run(cmd, capture_output=True, text=True)
-        if check and result.returncode != 0:
-            print(f"Git command failed: {' '.join(cmd)}\nStdout: {result.stdout}\nStderr: {result.stderr}")
+        if result.returncode != 0:
+            print(
+                f"Git command failed: {' '.join(cmd)}\n"
+                f"Stdout: {result.stdout}\nStderr: {result.stderr}"
+            )
             raise RuntimeError(f"git command failed: {result.stderr}")
         return result
 
     try:
-        # Create and switch to new branch from HEAD
         run(["git", "checkout", "-b", branch_name])
 
         for filepath, content in file_changes.items():
-            os.makedirs(os.path.dirname(filepath) if os.path.dirname(filepath) else ".", exist_ok=True)
+            parent = os.path.dirname(filepath)
+            os.makedirs(parent if parent else ".", exist_ok=True)
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(content)
             run(["git", "add", filepath])
