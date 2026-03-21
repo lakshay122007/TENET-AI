@@ -44,7 +44,7 @@ def get_llm_client():
         model_name="gemini-2.5-flash",
         generation_config=genai.types.GenerationConfig(
             temperature=0.2,
-            max_output_tokens=4096,
+            max_output_tokens=8192,  # raised from 4096 — issue solver writes multiple full files
         ),
         safety_settings=[
             {
@@ -163,7 +163,7 @@ def read_relevant_files(issue_title: str, issue_body: str, max_total_chars: int 
 
     collected = []
     total_chars = 0
-    for _, fpath in candidate_files[:30]:  # score is used only for sorting; discard it here
+    for _, fpath in candidate_files[:30]:
         try:
             with open(fpath, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
