@@ -31,6 +31,21 @@ DEFAULT_DATA_PATH = "./data/adversarial_prompts.json"
 DEFAULT_MODEL_PATH = "./models/trained"
 
 
+def extract_feature_extractor_metadata(vectorizer) -> dict:
+    """Extract reproducibility metadata from a fitted feature extractor."""
+    metadata = {"type": type(vectorizer).__name__}
+
+    if isinstance(vectorizer, TfidfVectorizer):
+        metadata.update({
+            "ngram_range": list(vectorizer.ngram_range),
+            "max_features": vectorizer.max_features,
+            "min_df": vectorizer.min_df,
+            "max_df": vectorizer.max_df,
+            "stop_words": vectorizer.stop_words,
+        })
+    return metadata
+
+
 def load_dataset(data_path: str) -> tuple[list, list]:
     """
     Load the adversarial prompt dataset.
@@ -291,14 +306,7 @@ def save_model(model, vectorizer, model_path: str, accuracy: float):
         "model_family": "sklearn_text_classification",
         "task": "adversarial_prompt_detection",
         "label_mapping": {"0": "benign", "1": "malicious"},
-        "feature_extractor": {
-            "type": type(vectorizer).__name__,
-            "ngram_range": list(getattr(vectorizer, "ngram_range", (1, 1))),
-            "max_features": getattr(vectorizer, "max_features", None),
-            "min_df": getattr(vectorizer, "min_df", None),
-            "max_df": getattr(vectorizer, "max_df", None),
-            "stop_words": getattr(vectorizer, "stop_words", None),
-        },
+        "feature_extractor": extract_feature_extractor_metadata(vectorizer),
         "artifact_files": [
             "prompt_detector.joblib",
             "vectorizer.joblib",

@@ -1,6 +1,7 @@
 """Tests for model artifact hardening and validation behavior."""
 
 import json
+import hashlib
 import tempfile
 from pathlib import Path
 import sys
@@ -66,6 +67,42 @@ def test_detector_rejects_checksum_path_traversal():
         _write_file(
             base / "checksums.json",
             json.dumps({"artifacts": {"../../etc/passwd": "abc"}}),
+        )
+
+        detector = PhishingDetector(model_path=str(base))
+        assert detector.model_loaded is False
+
+
+def test_detector_rejects_incomplete_metadata_schema():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        model_file = base / "prompt_detector.joblib"
+        vectorizer_file = base / "vectorizer.joblib"
+        joblib.dump(DummyModel(), model_file)
+        joblib.dump(DummyVectorizer(), vectorizer_file)
+
+        _write_file(
+            base / "metadata.json",
+            json.dumps(
+                {
+                    "trained_at": "2026-01-01T00:00:00Z",
+                    "accuracy": 1.0,
+                    "model_type": "Dummy",
+                    "version": "1.0.0",
+                }
+            ),
+        )
+        _write_file(
+            base / "checksums.json",
+            json.dumps(
+                {
+                    "artifacts": {
+                        "prompt_detector.joblib": hashlib.sha256(model_file.read_bytes()).hexdigest(),
+                        "vectorizer.joblib": hashlib.sha256(vectorizer_file.read_bytes()).hexdigest(),
+                        "metadata.json": hashlib.sha256((base / "metadata.json").read_bytes()).hexdigest(),
+                    }
+                }
+            ),
         )
 
         detector = PhishingDetector(model_path=str(base))

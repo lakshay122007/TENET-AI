@@ -28,6 +28,18 @@ logger = logging.getLogger(__name__)
 
 # Default paths
 DEFAULT_MODEL_PATH = os.getenv("MODEL_PATH", "./models/trained")
+REQUIRED_METADATA_FIELDS = [
+    "schema_version",
+    "trained_at",
+    "accuracy",
+    "model_type",
+    "model_family",
+    "task",
+    "label_mapping",
+    "feature_extractor",
+    "artifact_files",
+    "version",
+]
 
 
 class ThreatType(Enum):
@@ -186,8 +198,7 @@ class PhishingDetector:
         with open(metadata_file, "r", encoding="utf-8") as f:
             metadata = json.load(f)
 
-        required_fields = ["trained_at", "accuracy", "model_type", "version"]
-        missing = [field for field in required_fields if field not in metadata]
+        missing = [field for field in REQUIRED_METADATA_FIELDS if field not in metadata]
         if missing:
             logger.error("Model metadata missing required fields: %s", ", ".join(missing))
             return None

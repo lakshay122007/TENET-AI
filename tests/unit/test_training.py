@@ -155,7 +155,7 @@ class TestModelSaving:
             assert metadata["task"] == "adversarial_prompt_detection"
             assert "label_mapping" in metadata
             assert metadata["feature_extractor"]["type"] == "dict"
-            assert metadata["feature_extractor"]["ngram_range"] == [1, 1]
+            assert "ngram_range" not in metadata["feature_extractor"]
 
 
 class TestModelTesting:
