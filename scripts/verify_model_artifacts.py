@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 
-REQUIRED_FILES = ["prompt_detector.joblib", "vectorizer.joblib", "metadata.json"]
+REQUIRED_FILES = ["prompt_detector.joblib", "vectorizer.joblib", "metadata.json", "checksums.json"]
 REQUIRED_METADATA_FIELDS = ["trained_at", "accuracy", "model_type", "version"]
 
 

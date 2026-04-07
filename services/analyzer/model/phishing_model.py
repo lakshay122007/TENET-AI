@@ -154,12 +154,19 @@ class PhishingDetector:
             checksums_file = Path(self.model_path) / "checksums.json"
             
             if model_file.exists() and vectorizer_file.exists():
-                if metadata_file.exists():
-                    metadata = self._load_metadata(metadata_file)
-                    if not metadata:
-                        return False
+                if not metadata_file.exists():
+                    logger.error("Model metadata is required but missing at %s", metadata_file)
+                    return False
 
-                if checksums_file.exists() and not self._verify_checksums(checksums_file):
+                metadata = self._load_metadata(metadata_file)
+                if not metadata:
+                    return False
+
+                if not checksums_file.exists():
+                    logger.error("Checksum manifest is required but missing at %s", checksums_file)
+                    return False
+
+                if not self._verify_checksums(checksums_file):
                     return False
 
                 self.model = joblib.load(model_file)
