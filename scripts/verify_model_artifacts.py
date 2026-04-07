@@ -11,11 +11,32 @@ from pathlib import Path
 
 
 REQUIRED_FILES = ["prompt_detector.joblib", "vectorizer.joblib", "metadata.json", "checksums.json"]
-REQUIRED_METADATA_FIELDS = ["trained_at", "accuracy", "model_type", "version"]
+REQUIRED_METADATA_FIELDS = [
+    "schema_version",
+    "trained_at",
+    "accuracy",
+    "model_type",
+    "model_family",
+    "task",
+    "label_mapping",
+    "feature_extractor",
+    "artifact_files",
+    "version",
+]
 
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _resolve_artifact_path(base_dir: Path, filename: str) -> Path | None:
+    """Resolve artifact path and ensure it stays inside the model directory."""
+    candidate = (base_dir / filename).resolve()
+    try:
+        candidate.relative_to(base_dir.resolve())
+    except ValueError:
+        return None
+    return candidate
 
 
 def validate(model_path: Path) -> list[str]:
@@ -43,7 +64,10 @@ def validate(model_path: Path) -> list[str]:
             if not artifacts:
                 errors.append("checksums.json has no artifacts entries")
             for filename, expected_digest in artifacts.items():
-                artifact_path = model_path / filename
+                artifact_path = _resolve_artifact_path(model_path, filename)
+                if artifact_path is None:
+                    errors.append(f"checksums.json contains invalid artifact path: {filename}")
+                    continue
                 if not artifact_path.exists():
                     errors.append(f"checksums.json references missing file: {filename}")
                     continue

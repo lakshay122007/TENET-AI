@@ -291,7 +291,14 @@ def save_model(model, vectorizer, model_path: str, accuracy: float):
         "model_family": "sklearn_text_classification",
         "task": "adversarial_prompt_detection",
         "label_mapping": {"0": "benign", "1": "malicious"},
-        "feature_extractor": {"type": type(vectorizer).__name__},
+        "feature_extractor": {
+            "type": type(vectorizer).__name__,
+            "ngram_range": list(getattr(vectorizer, "ngram_range", (1, 1))),
+            "max_features": getattr(vectorizer, "max_features", None),
+            "min_df": getattr(vectorizer, "min_df", None),
+            "max_df": getattr(vectorizer, "max_df", None),
+            "stop_words": getattr(vectorizer, "stop_words", None),
+        },
         "artifact_files": [
             "prompt_detector.joblib",
             "vectorizer.joblib",

@@ -41,6 +41,37 @@ def test_detector_fails_closed_without_metadata_or_checksums():
         assert detector.model_loaded is False
 
 
+def test_detector_rejects_checksum_path_traversal():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        joblib.dump(DummyModel(), base / "prompt_detector.joblib")
+        joblib.dump(DummyVectorizer(), base / "vectorizer.joblib")
+        _write_file(
+            base / "metadata.json",
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "trained_at": "2026-01-01T00:00:00Z",
+                    "accuracy": 1.0,
+                    "model_type": "Dummy",
+                    "model_family": "test_family",
+                    "task": "task",
+                    "label_mapping": {"0": "benign", "1": "malicious"},
+                    "feature_extractor": {"type": "dummy"},
+                    "artifact_files": ["prompt_detector.joblib", "vectorizer.joblib"],
+                    "version": "1.0.0",
+                }
+            ),
+        )
+        _write_file(
+            base / "checksums.json",
+            json.dumps({"artifacts": {"../../etc/passwd": "abc"}}),
+        )
+
+        detector = PhishingDetector(model_path=str(base))
+        assert detector.model_loaded is False
+
+
 def test_validator_requires_checksums_manifest():
     with tempfile.TemporaryDirectory() as tmpdir:
         base = Path(tmpdir)
@@ -60,3 +91,34 @@ def test_validator_requires_checksums_manifest():
 
         errors = validate(base)
         assert any("checksums.json" in err for err in errors)
+
+
+def test_validator_rejects_checksum_path_traversal():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base = Path(tmpdir)
+        _write_file(base / "prompt_detector.joblib", "x")
+        _write_file(base / "vectorizer.joblib", "y")
+        _write_file(
+            base / "metadata.json",
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "trained_at": "2026-01-01T00:00:00Z",
+                    "accuracy": 1.0,
+                    "model_type": "Dummy",
+                    "model_family": "test_family",
+                    "task": "task",
+                    "label_mapping": {"0": "benign", "1": "malicious"},
+                    "feature_extractor": {"type": "dummy"},
+                    "artifact_files": ["prompt_detector.joblib", "vectorizer.joblib"],
+                    "version": "1.0.0",
+                }
+            ),
+        )
+        _write_file(
+            base / "checksums.json",
+            json.dumps({"artifacts": {"../../etc/passwd": "abc"}}),
+        )
+
+        errors = validate(base)
+        assert any("invalid artifact path" in err for err in errors)

@@ -151,6 +151,11 @@ class TestModelSaving:
             assert "trained_at" in metadata
             assert "version" in metadata
             assert metadata["schema_version"] == "1.0.0"
+            assert metadata["model_family"] == "sklearn_text_classification"
+            assert metadata["task"] == "adversarial_prompt_detection"
+            assert "label_mapping" in metadata
+            assert metadata["feature_extractor"]["type"] == "dict"
+            assert metadata["feature_extractor"]["ngram_range"] == [1, 1]
 
 
 class TestModelTesting:

@@ -205,18 +205,36 @@ class PhishingDetector:
             return False
 
         for filename, expected_hash in artifacts.items():
-            artifact_path = Path(self.model_path) / filename
+            artifact_path = self._resolve_artifact_path(filename)
+            if artifact_path is None:
+                logger.error("Checksum manifest contains invalid artifact path: %s", filename)
+                return False
+
             if not artifact_path.exists():
                 logger.error("Artifact referenced in checksum manifest is missing: %s", filename)
                 return False
 
-            digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+            digest = self._sha256(artifact_path)
             if digest != expected_hash:
                 logger.error("Checksum mismatch for %s", filename)
                 return False
 
         logger.info("Model artifact checksum verification passed.")
         return True
+
+    def _resolve_artifact_path(self, filename: str) -> Optional[Path]:
+        """Resolve artifact path and ensure it cannot escape model_path."""
+        base_path = Path(self.model_path).resolve()
+        candidate = (Path(self.model_path) / filename).resolve()
+        try:
+            candidate.relative_to(base_path)
+        except ValueError:
+            return None
+        return candidate
+
+    def _sha256(self, path: Path) -> str:
+        """Compute SHA-256 hash for an artifact file."""
+        return hashlib.sha256(path.read_bytes()).hexdigest()
     
     def detect(self, prompt: str, context: Optional[str] = None) -> DetectionResult:
         """

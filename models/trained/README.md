@@ -19,7 +19,7 @@ This directory contains the production inference artifacts used by the analyzer 
 python scripts/verify_model_artifacts.py --model-path models/trained
 ```
 
-4. Analyzer runtime performs optional checksum verification when `checksums.json` exists.
+4. Analyzer runtime requires `checksums.json` and blocks model loading if checksum verification fails.
 
 ## Deployment notes
 
