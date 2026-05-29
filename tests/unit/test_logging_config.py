@@ -122,12 +122,9 @@ class TestSensitiveDataLogging:
     def test_logger_functional_for_normal_messages(self):
         """Test that logger works normally without raising exceptions."""
         logger = setup_logging("test_sensitive")
-        try:
-            logger.info("User logged in successfully")
-            logger.warning("Test warning")
-            logger.error("Test error")
-        except Exception as e:
-            pytest.fail(f"Logger raised an exception: {e}")
+        logger.info("User logged in successfully")
+        logger.warning("Test warning")
+        logger.error("Test error")
 
 
 class TestLogLevelCaseInsensitive:
