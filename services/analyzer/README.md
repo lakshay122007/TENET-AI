@@ -320,7 +320,7 @@ curl -X POST http://localhost:8100/v1/analyze \
 * [Main Project README](../../README.md)
 * [ARCHITECTURE_DEEP_DIVE.md](../../docs/ARCHITECTURE_DEEP_DIVE.md)
 * [SECURITY.md](../../SECURITY.md)
-* [TENET_AGENT_SETUP.md](../../docs/TENET_AGENT_SETUP.md)
+* [TENET_AGENT_SETUP.md](../../TENET_AGENT_SETUP.md)
 
 ---
 
