@@ -152,7 +152,7 @@ export default function App() {
             <Shield className="theme-icon" />
             <span>TENET AI</span>
           </div>
-          <button className="mobile-close-btn" onClick={() => setIsSidebarOpen(false)}>
+          <button className="mobile-close-btn" onClick={() => setIsSidebarOpen(false)} aria-label="Close sidebar">
             <X size={20} />
           </button>
         </div>
@@ -175,7 +175,7 @@ export default function App() {
       <main className="main-content">
         <header>
           <div className="header-title-container">
-            <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+            <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)} aria-label="Open sidebar">
               <Menu size={24} />
             </button>
             <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
