@@ -37,21 +37,23 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
         
         method = request.method
-        # Only record path as endpoint to prevent high cardinality if path contains IDs.
-        # Ideally, we would use route.path, but request.url.path is simpler for this project.
-        endpoint = request.url.path
-        
         try:
             response = await call_next(request)
             status_code = str(response.status_code)
+            
+            route = request.scope.get("route")
+            endpoint = route.path if route else request.url.path
             
             REQUEST_COUNT.labels(method=method, endpoint=endpoint, status=status_code).inc()
             REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(time.time() - start_time)
             
             return response
-        except Exception as e:
+        except Exception:
             # If an unhandled exception occurs, assume 500 status code
             status_code = "500"
+            route = request.scope.get("route")
+            endpoint = route.path if route else request.url.path
+            
             REQUEST_COUNT.labels(method=method, endpoint=endpoint, status=status_code).inc()
             REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(time.time() - start_time)
             raise
