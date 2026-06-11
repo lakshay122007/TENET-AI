@@ -54,4 +54,4 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
             status_code = "500"
             REQUEST_COUNT.labels(method=method, endpoint=endpoint, status=status_code).inc()
             REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(time.time() - start_time)
-            raise e
+            raise

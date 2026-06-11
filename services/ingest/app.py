@@ -320,10 +320,8 @@ async def ingest_llm_event(request: LLMEventRequest, x_api_key: str = Header(...
 
     event_id = str(uuid.uuid4())
     timestamp = datetime.utcnow().isoformat()
-    blocked, risk_score, verdict = quick_heuristic_check(request.prompt)
+    blocked, risk_score, verdict, threat_type = quick_heuristic_check(request.prompt)
     
-    # Simple mapping based on risk score from quick_heuristic_check
-    threat_type = "prompt_injection" if risk_score >= 0.95 else ("jailbreak" if risk_score >= 0.90 else ("data_extraction" if risk_score >= 0.75 else "none"))
     increment_detection(service="ingest", threat_type=threat_type, verdict=verdict)
 
     event_payload = {
@@ -369,7 +367,7 @@ async def ingest_llm_event(request: LLMEventRequest, x_api_key: str = Header(...
     )
 
 
-def quick_heuristic_check(prompt: str) -> tuple[bool, float, str]:
+def quick_heuristic_check(prompt: str) -> tuple[bool, float, str, str]:
     prompt_lower = prompt.lower()
 
     injection_patterns = [
@@ -413,17 +411,17 @@ def quick_heuristic_check(prompt: str) -> tuple[bool, float, str]:
 
     for pattern in injection_patterns:
         if pattern in prompt_lower:
-            return True, 0.95, "malicious"
+            return True, 0.95, "malicious", "prompt_injection"
 
     for pattern in jailbreak_patterns:
         if pattern in prompt_lower:
-            return True, 0.90, "malicious"
+            return True, 0.90, "malicious", "jailbreak"
 
     for pattern in extraction_patterns:
         if pattern in prompt_lower:
-            return False, 0.75, "suspicious"
+            return False, 0.75, "suspicious", "data_extraction"
 
-    return False, 0.0, "benign"
+    return False, 0.0, "benign", "none"
 
 
 @app.get("/v1/events")
