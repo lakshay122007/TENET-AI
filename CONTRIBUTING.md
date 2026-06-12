@@ -350,7 +350,7 @@ v1.0.0-alpha.1 — alpha release
 | `perf:` | `perf: optimize detection` | No bump |
 | `refactor:` | `refactor: clean up analyzer` | No bump |
 | `test:` | `test: add unit tests` | No bump |
-| `security:` | `security: patch vulnerability` | No bump ||
+| `security:` | `security: patch vulnerability` | No bump |
 
 ### Creating a Release (Maintainers Only)
 ```bash
